@@ -9,6 +9,7 @@
     <img id="imageSrc" alt="No Image" />
     <div class="caption">imageSrc <input type="file" id="fileInput" name="file" /></div>
     <canvas id="canvas" width="512" height="512"></canvas>
+    <canvas id="canvasContours" width="512" height="512"></canvas>
   </div>
   <script src="opencv.js" type="text/javascript"></script>
   <script>
@@ -22,23 +23,28 @@
     imgElement.onload = function() {
       let image = cv.imread(imgElement);
       let canvas = document.getElementById("canvas");
+      let canvasContours = document.getElementById("canvasContours");
 
-      let ctx = canvas.getContext('2d');
+      let ctx = canvas.getContext("2d");
       let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      cv.cvtColor(image, image, cv.COLOR_BGR2GRAY);
-
       let dst = new cv.Mat();
-      cv.Canny(image, dst, 0, 80);
+
+      cv.cvtColor(image, dst, cv.COLOR_BGR2GRAY);
+
+      cv.Canny(dst, dst, 0, 80);
 
       let contours = new cv.MatVector();
       let hierarchy = new cv.Mat();
       cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
       let imageContourNumber = contours.size();
       cv.imshow(canvas, dst);
+      let color = new cv.Scalar(255,0,0);
+
+      cv.cvtColor(image, image, cv.COLOR_BGR2RGB);
+      let { width: imageWidth, height: imageHeight } = image.size();
 
       for (let i = 0; i < imageContourNumber; i++) {
-
         if (i == imageContourNumber) {
           continue;
         }
@@ -51,16 +57,25 @@
           continue;
         }
         const rectData = cv.boundingRect(approx);
-        const {width, height} = rectData;
+        const {x, y, width, height} = rectData;
 
         let aspectRatio = width / parseFloat(height);
         let area = cv.contourArea(cnt, false);
         let rectArea = width * height;
         let extent = area / rectArea;
-        if (aspectRatio >= 1.05 && width > 10 && height > 44 && extent > 0.8) {
-          console.log(extent, "  ", width)
+        let buttonShape = aspectRatio >= 1.05 && width > 10 && height > 44 && extent > 0.8;
+        if (buttonShape) {
+          cv.drawContours(image, contours, i, color, 2);
+          let verticalHalf = y + (height / 2);
+          let horizontalHalf = x + (width / 2);
+          cv.line(image, {x: 0, y: verticalHalf}, {x: x, y: verticalHalf}, color, 1);
+          cv.line(image, {x: x + width, y: verticalHalf}, {x: imageWidth, y: verticalHalf}, color, 1);
+          cv.line(image, {x: horizontalHalf, y: 0}, {x: horizontalHalf, y: y}, color, 1);
+          cv.line(image, {x: horizontalHalf, y: y + height}, {x: horizontalHalf, y: imageHeight}, color, 1);
         }
       }
+      cv.cvtColor(image, image, cv.COLOR_RGB2BGR);
+      cv.imshow(canvasContours, image);
     }
   </script>
 </body>
